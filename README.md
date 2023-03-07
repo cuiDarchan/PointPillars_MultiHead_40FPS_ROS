@@ -23,7 +23,8 @@
 ## 使用步骤
 ## 1. 生成模型文件   
 **详细参考：**
-[PointPillars 工程复现](https://blog.csdn.net/weixin_36354875/article/details/126051498?spm=1001.2014.3001.5502)
+[PointPillars 工程复现](https://blog.csdn.net/weixin_36354875/article/details/126051498?spm=1001.2014.3001.5502)  
+为方便大家，提供模型下载的百度云链接：链接: https://pan.baidu.com/s/1mM1AsAwFGh0-UTNIkWPOuQ 提取码: 9fe6  
 
 ## 2. 编译执行  
 ```
@@ -39,5 +40,5 @@ LidarTopic: lidar_top                   # 订阅lidar消息
 BoundingBoxTopic: boundingbox_objects   # 障碍物消息，障碍物显示需要插件
 ObjectScoreThreshold: 0.3               # 障碍物打分阈值
 ```
- ## 4. 结尾  
- 图中可见初步效果，可以修改打分阈值来改善一部分，后期添加`障碍物追踪`可以更稳定一些。
+## 4. 结尾  
+图中可见初步效果，可以修改打分阈值来改善一部分，后期添加`障碍物追踪`可以更稳定一些。
