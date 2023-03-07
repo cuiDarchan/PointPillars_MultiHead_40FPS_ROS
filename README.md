@@ -1,12 +1,13 @@
 # Pointpillars_ROS工程化
 **工程参考：**  
-[1. PointPillars_MultiHead_40FPS](https://github.com/hova88/PointPillars_MultiHead_40FPS)
-[2. PointPillars 工程复现](https://blog.csdn.net/weixin_36354875/article/details/126051498?spm=1001.2014.3001.5502)
-[3. DeepDriving -- 激光点云3D目标检测算法之PointPillars](https://blog.csdn.net/weixin_44613415/article/details/125800169)
+[1. PointPillars_MultiHead_40FPS](https://github.com/hova88/PointPillars_MultiHead_40FPS)  
+[2. PointPillars 工程复现](https://blog.csdn.net/weixin_36354875/article/details/126051498?spm=1001.2014.3001.5502)  
+[3. DeepDriving -- 激光点云3D目标检测算法之PointPillars](https://blog.csdn.net/weixin_44613415/article/details/125800169)  
+
 ---
 
 ## 效果及简单说明
-本工程主要基于[PointPillars_MultiHead_40FPS](https://github.com/hova88/PointPillars_MultiHead_40FPS)，在其基础上添加`ROS节点`，实现了实时展示 。
+本工程主要基于[PointPillars_MultiHead_40FPS](https://github.com/hova88/PointPillars_MultiHead_40FPS)，在其基础上添加`ROS节点`，实现了实时展示 。  
 **1) Pointpillars ROS节点动态展示**
 <p align="left">
   <img width="2000" alt="pp" src=docs/pointpillars.gif>
@@ -22,7 +23,7 @@
 ## 使用步骤
 ## 1. 生成模型文件   
 **详细参考：**
-[1. PointPillars 工程复现](https://blog.csdn.net/weixin_36354875/article/details/126051498?spm=1001.2014.3001.5502)
+[PointPillars 工程复现](https://blog.csdn.net/weixin_36354875/article/details/126051498?spm=1001.2014.3001.5502)
 
 ## 2. 编译执行  
 ```
