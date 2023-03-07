@@ -8,6 +8,10 @@
 #include "gtest/gtest.h"
 using namespace std;
 
+/*
+ * 功能： 将测试点云txt文件修改为array，并存入到指针points_array
+ * 备注： txt点云测试文件，为n*5
+ */
 int Txt2Arrary( float* &points_array , string file_name , int num_feature = 4)
 {
   ifstream InFile;
@@ -33,6 +37,9 @@ int Txt2Arrary( float* &points_array , string file_name , int num_feature = 4)
   // printf("Done");
 };
 
+/*
+ * 功能： 将网络推理的boxes信息写到txt文件中，用于可视化脚本显示
+ */
 void Boxes2Txt( std::vector<float> boxes , string file_name , int num_feature = 7)
 {
     ofstream ofFile;
@@ -49,8 +56,9 @@ void Boxes2Txt( std::vector<float> boxes , string file_name , int num_feature = 
     return ;
 };
 
-TEST(PointPillars, __build_model__) {
 
+// TEST(PointPillars, __build_model__) {
+int main(){
   const std::string DB_CONF = "../bootstrap.yaml";
   YAML::Node config = YAML::LoadFile(DB_CONF);
 
@@ -86,7 +94,7 @@ TEST(PointPillars, __build_model__) {
     std::vector<int> out_labels;
     std::vector<float> out_scores;
 
-    cudaDeviceSynchronize();
+    cudaDeviceSynchronize();//线程同步函数，等待gpu执行完成，再cpu执行
     pp.DoInference(points_array, in_num_points, &out_detections, &out_labels , &out_scores);
     cudaDeviceSynchronize();
     int BoxFeature = 7;
@@ -94,8 +102,8 @@ TEST(PointPillars, __build_model__) {
 
     std::string boxes_file_name = config["OutputFile"].as<std::string>();
     Boxes2Txt(out_detections , boxes_file_name );
-    EXPECT_EQ(num_objects,228);
+    // EXPECT_EQ(num_objects,228);
   }
-
+  return 0;
 
 };

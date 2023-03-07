@@ -326,7 +326,7 @@ void PointPillars::EngineToTRTModel(
     nvinfer1::ICudaEngine** engine_ptr)  {
     int verbosity = static_cast<int>(nvinfer1::ILogger::Severity::kWARNING);
     std::stringstream gieModelStream; 
-    gieModelStream.seekg(0, gieModelStream.beg); 
+    gieModelStream.seekg(0, gieModelStream.beg); // seekg 文件流对象读取，定位到begin位置，偏移值为0 
 
     std::ifstream cache(engine_file); 
     gieModelStream << cache.rdbuf();
@@ -339,7 +339,7 @@ void PointPillars::EngineToTRTModel(
         exit(EXIT_FAILURE);
     }
     gieModelStream.seekg(0, std::ios::end);
-    const int modelSize = gieModelStream.tellg(); 
+    const int modelSize = gieModelStream.tellg(); // 定位当前位置
 
     gieModelStream.seekg(0, std::ios::beg);
     void* modelMem = malloc(modelSize); 
@@ -369,6 +369,7 @@ void PointPillars::DoInference(const float* in_points_array,
                                 std::vector<int>* out_labels,
                                 std::vector<float>* out_scores) 
 {
+    if(in_points_array == nullptr) return;
     SetDeviceMemoryToZero();
     cudaDeviceSynchronize();
     // [STEP 1] : load pointcloud

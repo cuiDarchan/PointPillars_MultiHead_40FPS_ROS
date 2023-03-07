@@ -1,20 +1,20 @@
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.16)
 
 cmake_policy(SET CMP0048 NEW)
 cmake_policy(SET CMP0042 NEW)
 project(pointpillars) 
 
-
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCMAKE_C_COMPILER=/usr/bin/gcc-6 -DCMAKE_CXX_COMPILER=/usr/bin/g++-6 ")
 option(BUILD_SHARED_LIBS "Build as a shared library"  ON)
 option(USE_DOUBLE        "Use double as kernel_type" OFF)
-option(TEST              "BUILD TEST"                 ON)
+option(TEST              "BUILD TEST"                OFF)
 option(BENCH             "BUILD BENCH"               OFF)
 
 if(USE_DOUBLE)
     message("Use double as kernel_type")
 endif()
 if (NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Release)
+    set(CMAKE_BUILD_TYPE Debug)
 endif ()
 
 ############################################################
@@ -36,9 +36,33 @@ else ()
   set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -std=c++14 -Wno-deprecated-gpu-targets)
 endif ()
 
-find_library(NVINFER NAMES nvinfer)
+set(CMAKE_PREFIX_PATH "/usr/local/TensorRT/TensorRT-7.1.3.4")
+find_library(NVINFER NAMES nvinfer) # 查找so动态库文件
 find_library(NVPARSERS NAMES nvparsers)
 find_library(NVONNXPARSERS NAMES nvonnxparser)
+message(NVINFER "NVINFER path is ${NVINFER}")
+message(NVPARSERS "NVPARSERS path is ${NVPARSERS}")
+message(NVONNXPARSERS "nvonnxparser path is ${NVONNXPARSERS}")
+
+include_directories("/usr/local/TensorRT/TensorRT-7.1.3.4/include")
+#link_directories(${TENSORRT_ROOT}/lib)
+
+# ROS
+set(CMAKE_PREFIX_PATH "/opt/ros/melodic")
+find_package(catkin REQUIRED COMPONENTS
+  roscpp
+  std_msgs
+  rosbag             # use rosbag::Bag
+  sensor_msgs
+  message_filters
+  geometry_msgs
+  nav_msgs
+  visualization_msgs
+)
+include_directories(${catkin_INCLUDE_DIRS})
+
+find_package(PCL 1.8 REQUIRED)
+include_directories(${PCL_INCLUDE_DIRS})
 
 list(APPEND LINK_LIBRARY
             ${CUDA_cusparse_LIBRARY}
@@ -48,13 +72,13 @@ list(APPEND LINK_LIBRARY
             ${CUDA_CUBLAS_LIBRARIES}
             ${CUDA_curand_LIBRARY}            
             ${CUDA_cusparse_LIBRARY}
-
+            ${PCL_LIBRARIES}
+            ${catkin_LIBRARIES}
             yaml-cpp
             )
 
 # Correct error for GCC 5 and CUDA 7.5
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DYAML_BUILD_SHARED_LIBS=ON -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES ")
-
 if (CMAKE_VERSION VERSION_LESS "3.1")
     add_compile_options("-std=c++11 -fext-numeric-literals")
 else ()
@@ -74,18 +98,25 @@ add_subdirectory(${PROJECT_SOURCE_DIR}/pointpillars)
 ############################################################
 # Create an executable
 ############################################################
-if (TEST)
-    message("Building tests")
-    enable_testing()
-    add_subdirectory(test)
-endif ()
+# if (TEST)
+#     message("Building tests")
+#     enable_testing()
+#     add_subdirectory(test)
+# endif ()
 
-message(STATUS "")
-message(STATUS "BUILD SUMMARY")
-message(STATUS "  CMAKE_GENERATOR      : ${CMAKE_GENERATOR}")
-message(STATUS "  Compiler ID          : ${CMAKE_CXX_COMPILER_ID}")
-message(STATUS "  Build type           : ${CMAKE_BUILD_TYPE}")
-message(STATUS "  Build shared libs    : ${BUILD_SHARED_LIBS}")
-message(STATUS "  Use double for kernel: ${USE_DOUBLE}")
-message(STATUS "  Build tests          : ${TEST}")
-message(STATUS "")
+# message(STATUS "")
+# message(STATUS "BUILD SUMMARY")
+# message(STATUS "  CMAKE_GENERATOR      : ${CMAKE_GENERATOR}")
+# message(STATUS "  Compiler ID          : ${CMAKE_CXX_COMPILER_ID}")
+# message(STATUS "  Build type           : ${CMAKE_BUILD_TYPE}")
+# message(STATUS "  Build shared libs    : ${BUILD_SHARED_LIBS}")
+# message(STATUS "  Use double for kernel: ${USE_DOUBLE}")
+# message(STATUS "  Build tests          : ${TEST}")
+# message(STATUS "")
+
+
+add_executable(pointpillars_test test/pointpillars_test.cc) 
+target_link_libraries(pointpillars_test ${LINK_LIBRARY} ${PROJECT_LIB_NAME}) 
+
+add_executable(pointpillars_ros test/pointpillars_ros.cc) 
+target_link_libraries(pointpillars_ros ${LINK_LIBRARY} ${PROJECT_LIB_NAME}) 

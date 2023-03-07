@@ -130,6 +130,9 @@ void PostprocessCuda::DoPostprocessCuda(
 
     std::vector<float>& out_detection, std::vector<int>& out_label , std::vector<float>& out_score) {
     
+    out_detection.clear();
+    out_label.clear();
+    out_score.clear();
     // class_map as {0, 12 , 34 , 5 ,67 ,89}
     // class_map can be designed as a variable(list , dict , ...), which can flexibly adapt to 
     // the changes of openpcdet's multihead structure
@@ -140,7 +143,7 @@ void PostprocessCuda::DoPostprocessCuda(
     // For TensorRT , the same structure head should be layer-fused more efficiently~! 
     
     
-    //num_anchor_per_cls_ = 32768
+    //num_anchor_per_cls_ = 32768，拷贝10分类的推理结果，得到host_score和host_box
     GPU_CHECK(cudaMemcpy(&host_score[0 * num_anchor_per_cls_], cls_pred_0, num_anchor_per_cls_ * sizeof(float), cudaMemcpyDeviceToHost));
     GPU_CHECK(cudaMemcpy(&host_score[1 * num_anchor_per_cls_], cls_pred_12, num_anchor_per_cls_ * 2 * 2 * sizeof(float), cudaMemcpyDeviceToHost));
     GPU_CHECK(cudaMemcpy(&host_score[5 * num_anchor_per_cls_], cls_pred_34, num_anchor_per_cls_ * 2 * 2 * sizeof(float), cudaMemcpyDeviceToHost));
@@ -152,6 +155,7 @@ void PostprocessCuda::DoPostprocessCuda(
 
     GPU_CHECK(cudaMemcpy(host_box, box_preds, num_class_ * num_anchor_per_cls_ * num_output_box_feature_ * sizeof(float), cudaMemcpyDeviceToHost));
     
+    // 遍历每一个类别
     for (int class_idx = 0; class_idx < num_class_; ++ class_idx) {  // hardcode for class_map as {0, 12 , 34 , 5 ,67 ,89}
         // init parameter
         host_filtered_count[class_idx] = 0;
@@ -175,7 +179,7 @@ void PostprocessCuda::DoPostprocessCuda(
                 // printf("up , low : %f ,%f \n", score_upper , score_lower);
             }
 
-
+            // 过滤，box属性拷贝： 利用 score_upper， score_lower 结合score_threshold_，nms_pre_maxsize_
             if (score_upper > score_threshold_ && host_filtered_count[class_idx] < nms_pre_maxsize_)  // filter out boxes which threshold less than score_threshold
             {
                 host_filtered_score[host_filtered_count[class_idx]] = score_upper;
@@ -259,6 +263,7 @@ void PostprocessCuda::DoPostprocessCuda(
         cudaMemcpy(host_sorted_filtered_score, dev_sorted_filtered_score, host_filtered_count[class_idx] * sizeof(float), cudaMemcpyDeviceToHost);
         
         // int det_num_filtered_boxes_pre_class = 0;
+        // 得到检测结果out_detection 、out_score、 out_label
         for (int box_idx = 0; box_idx < det_num_boxes_per_class; ++box_idx)  {    
             out_detection.emplace_back(host_sorted_filtered_box[keep_inds[box_idx] * 7 + 0]);
             out_detection.emplace_back(host_sorted_filtered_box[keep_inds[box_idx] * 7 + 1]);

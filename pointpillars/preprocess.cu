@@ -50,6 +50,9 @@
 #include "common.h"
 #include "preprocess.h"
 
+/*
+ * pillar化：根据pillar坐标，为pillar_point_feature的赋值，每个pillar中有最大数目限制
+ */
 __global__ void make_pillar_histo_kernel(
     const float* dev_points, float* dev_pillar_point_feature_in_coors,
     int* pillar_count_histo, const int num_points,
@@ -69,35 +72,39 @@ __global__ void make_pillar_histo_kernel(
   if (x_coor >= 0 && x_coor < grid_x_size && y_coor >= 0 &&
       y_coor < grid_y_size && z_coor >= 0 && z_coor < grid_z_size) {
     int count =
-        atomicAdd(&pillar_count_histo[y_coor * grid_x_size + x_coor], 1);
+        atomicAdd(&pillar_count_histo[y_coor * grid_x_size + x_coor], 1); //先赋值后进行加法计算, 统计pillar中点数count
     if (count < max_points_per_pillar) {
       int ind =
           y_coor * grid_x_size * max_points_per_pillar * num_point_feature +
           x_coor * max_points_per_pillar * num_point_feature +
-          count * num_point_feature;
+          count * num_point_feature;// max_points_per_pillar: N, num_point_feature: D(9)，pillar中索引 ind
  
       for (int i = 0; i < num_point_feature; ++i) {
         dev_pillar_point_feature_in_coors[ind + i] =
-            dev_points[th_i * num_point_feature + i];
+            dev_points[th_i * num_point_feature + i];// dev_pillar_point_feature_in_coors 一维
       }
     }
   }
 }
 
+
+/*
+ * 统计pillar中点的个数，制作pillar索引，赋值到dev_sparse_pillar_map，每一个pillar执行如下操作
+ */
 __global__ void make_pillar_index_kernel(
     int* dev_pillar_count_histo, int* dev_counter, int* dev_pillar_count,
     int* dev_x_coors, int* dev_y_coors, float* dev_num_points_per_pillar,
     int* dev_sparse_pillar_map, const int max_pillars,
     const int max_points_per_pillar, const int grid_x_size,
     const int num_inds_for_scan) {
-  int x = blockIdx.x;
-  int y = threadIdx.x;
-  int num_points_at_this_pillar = dev_pillar_count_histo[y * grid_x_size + x];
+  int x = blockIdx.x; // grid_x_size
+  int y = threadIdx.x; // grid_y_size
+  int num_points_at_this_pillar = dev_pillar_count_histo[y * grid_x_size + x];// pillar中点数
   if (num_points_at_this_pillar == 0) {
     return;
   }
 
-  int count = atomicAdd(dev_counter, 1);
+  int count = atomicAdd(dev_counter, 1);// dev_counter: 统计非空 pillar数目
   if (count < max_pillars) {
     atomicAdd(dev_pillar_count, 1);
     if (num_points_at_this_pillar >= max_points_per_pillar) {
@@ -105,31 +112,35 @@ __global__ void make_pillar_index_kernel(
     } else {
       dev_num_points_per_pillar[count] = num_points_at_this_pillar;
     }
-    dev_x_coors[count] = x;
-    dev_y_coors[count] = y;
-    dev_sparse_pillar_map[y * num_inds_for_scan + x] = 1;
+    dev_x_coors[count] = x; // blockIdx.x，记录线程坐标, 也是pillar坐标，一个pillar对应一个thread
+    dev_y_coors[count] = y; // threadIdx.x, (x,y)，绘制一维block行，thread列帮助理解
+    dev_sparse_pillar_map[y * num_inds_for_scan + x] = 1;//标记sparse_pillar_map 占据为1， num_inds_for_scan：1024
   }
 }
 
+/*
+ * 构建 pillar_feature, 对pillar中的每一个点执行如下操作
+ */
 __global__ void make_pillar_feature_kernel(
     float* dev_pillar_point_feature_in_coors, float* dev_pillar_point_feature,
     float* dev_pillar_coors, int* dev_x_coors, int* dev_y_coors,
     float* dev_num_points_per_pillar, const int max_points,
     const int num_point_feature, const int grid_x_size) {
-  int ith_pillar = blockIdx.x;
+  int ith_pillar = blockIdx.x;// pillar索引
   int num_points_at_this_pillar = dev_num_points_per_pillar[ith_pillar];
-  int ith_point = threadIdx.x;
+  int ith_point = threadIdx.x;// pillar中每一个点执行一个thread
   if (ith_point >= num_points_at_this_pillar) {
     return;
   }
   int x_ind = dev_x_coors[ith_pillar];
   int y_ind = dev_y_coors[ith_pillar];
   int pillar_ind = ith_pillar * max_points * num_point_feature +
-                   ith_point * num_point_feature;
+                   ith_point * num_point_feature;// （P,N,D）
   int coors_ind = y_ind * grid_x_size * max_points * num_point_feature +
                   x_ind * max_points * num_point_feature +
-                  ith_point * num_point_feature;
-  #pragma unroll 
+                  ith_point * num_point_feature;// (pillar_x,pillar_y,N,D)
+  // pillar_point_feature_in_coors 转换为 pillar_point_feature
+  #pragma unroll //优化：展开小循环，提高运行效率
   for (int i = 0; i < num_point_feature; ++i) {
     dev_pillar_point_feature[pillar_ind + i] =
         dev_pillar_point_feature_in_coors[coors_ind + i];
@@ -144,7 +155,9 @@ __global__ void make_pillar_feature_kernel(
 }
 
 
-
+/*
+ * 构建均值 dev_points_mean，每一个thread对应一个点的某一个维度，如x
+ */
 __global__ void pillar_mean_kernel(
   float* dev_points_mean, 
   const int num_point_feature,
@@ -153,14 +166,14 @@ __global__ void pillar_mean_kernel(
   int max_pillars , 
   int max_points_per_pillar) {
 
-    extern __shared__ float temp[];
+    extern __shared__ float temp[]; // 一个pillar中的共享内存
     int ith_pillar = blockIdx.x; 
-    int ith_point  = threadIdx.x;
+    int ith_point  = threadIdx.x; //thread 二维，（20,3）
     int axis = threadIdx.y;
   
-    int reduce_size = max_points_per_pillar > 32 ? 64 : 32;
-    temp[threadIdx.x * 3 + axis] =  dev_pillar_point_feature[ith_pillar * max_points_per_pillar * num_point_feature + ith_point * num_point_feature + axis];  
-    if (threadIdx.x < reduce_size - max_points_per_pillar) {
+    int reduce_size = max_points_per_pillar > 32 ? 64 : 32; // 超过32被舍弃掉，并未采用随机采样方式
+    temp[threadIdx.x * 3 + axis] =  dev_pillar_point_feature[ith_pillar * max_points_per_pillar * num_point_feature + ith_point * num_point_feature + axis];  //只取前20个，剩余12个直接补0
+    if (threadIdx.x < reduce_size - max_points_per_pillar) { // pillar中其余值补0
         temp[(threadIdx.x + max_points_per_pillar) * 3 + axis] = 0.0f; //--> dummy placeholds will set as 0
     }
     __syncthreads();
@@ -172,13 +185,15 @@ __global__ void pillar_mean_kernel(
 
     for (unsigned int d = reduce_size >> 1 ; d > 0.6; d >>= 1) {
         if (ith_point < d) {
-            temp[ith_point*3 +axis] += temp[(ith_point + d) * 3 + axis];
+            temp[ith_point*3 +axis] += temp[(ith_point + d) * 3 + axis];// 筛选1，2,4,8,16 5个代表性值
         }
+        // printf("pillar_mean_kernel, d: %d\n",d);
         __syncthreads();
     }
 
     if (ith_point == 0) {
         dev_points_mean[ith_pillar * 3 + axis] = temp[ith_point + axis] / num_points_at_this_pillar ;
+        // printf("dev_points_mean, d: %d\n",num_points_at_this_pillar);
     }
 }
 
@@ -231,7 +246,7 @@ __global__ void make_pillar_mean_kernel(
       temp[ith_point * blockDim.y + axis] = dev_pillar_point_feature[idx_pre  + axis] 
                                           + dev_pillar_point_feature[idx_post + axis];
     // }
-    __syncthreads();
+    __syncthreads();//block内部用于线程同步
 
     // do reduction in shared mem
     // Sequential addressing. This solves the bank conflicts as
@@ -246,6 +261,9 @@ __global__ void make_pillar_mean_kernel(
 }
 
 
+/*
+ * 聚合所有得到的 point_feature，每一个thread对应一个点
+ */
 __global__ void gather_point_feature_kernel(
   const int max_num_pillars_,const int max_num_points_per_pillar,const int num_point_feature,
   const float min_x_range, const float min_y_range, const float min_z_range, 
@@ -265,7 +283,7 @@ __global__ void gather_point_feature_kernel(
         return;
     }
 
-
+    // 11 维特征， x, y, z ,i, 0, 归一化cx,cy,cz, 到pillar偏移 xp,yp,zp
     dev_pfe_gather_feature_[ith_pillar * max_num_points_per_pillar * num_gather_feature + ith_point * num_gather_feature + 0] 
     =  dev_pillar_point_feature[ith_pillar * max_num_points_per_pillar * num_point_feature + ith_point * num_point_feature + 0]; 
   
@@ -359,7 +377,8 @@ void PreprocessPointsCuda::DoPreprocessPointsCuda(
     GPU_CHECK(cudaMemset(dev_counter_, 0, sizeof(int)));
     GPU_CHECK(cudaMemset(dev_pillar_count_, 0, sizeof(int)));
     GPU_CHECK(cudaMemset(dev_points_mean_, 0,  max_num_pillars_ * 3 * sizeof(float)));
-    int num_block = DIVUP(in_num_points , num_threads_);
+    int num_block = DIVUP(in_num_points , num_threads_); // 除法向上取整，num_threads = 64
+    std::cout << "num_block: " << num_block << ", num_threads_:" << num_threads_ << std::endl; // 4188， 64
     make_pillar_histo_kernel<<<num_block , num_threads_>>>(
         dev_points, dev_pillar_point_feature_in_coors_, dev_pillar_count_histo_,
         in_num_points, max_num_points_per_pillar_, grid_x_size_, grid_y_size_,
@@ -374,13 +393,14 @@ void PreprocessPointsCuda::DoPreprocessPointsCuda(
 
     GPU_CHECK(cudaMemcpy(host_pillar_count, dev_pillar_count_, 1 * sizeof(int),
         cudaMemcpyDeviceToHost));
+    std::cout << "host_pillar_count[0]: " << host_pillar_count[0] << "," << *host_pillar_count << std::endl; // 28395
     make_pillar_feature_kernel<<<host_pillar_count[0],max_num_points_per_pillar_>>>(
         dev_pillar_point_feature_in_coors_, dev_pillar_point_feature,
         dev_pillar_coors, dev_x_coors, dev_y_coors, dev_num_points_per_pillar,
         max_num_points_per_pillar_, num_point_feature_, grid_x_size_);
     
 
-    dim3 mean_block(max_num_points_per_pillar_,3); //(32,3)
+    dim3 mean_block(max_num_points_per_pillar_,3); //(20,3)
 
     pillar_mean_kernel<<<host_pillar_count[0],mean_block,64 * 3 *sizeof(float)>>>(
       dev_points_mean_  ,num_point_feature_, dev_pillar_point_feature, dev_num_points_per_pillar, 
