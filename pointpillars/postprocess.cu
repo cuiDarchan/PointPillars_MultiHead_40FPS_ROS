@@ -104,10 +104,10 @@ PostprocessCuda::PostprocessCuda(const int num_threads, const float float_min, c
   score_threshold_(score_threshold),
   nms_overlap_threshold_(nms_overlap_threshold),
   nms_pre_maxsize_(nms_pre_maxsize),
-  nms_post_maxsize_(nms_post_maxsize),
+  nms_post_maxsize_(nms_post_maxsize), // 83
   num_box_corners_(num_box_corners),
   num_input_box_feature_(num_input_box_feature),
-  num_output_box_feature_(num_output_box_feature) {
+  num_output_box_feature_(num_output_box_feature) { //9
     nms_cuda_ptr_.reset(
     new NmsCuda(num_threads_, num_box_corners_, nms_overlap_threshold_));
 
@@ -157,7 +157,7 @@ void PostprocessCuda::DoPostprocessCuda(
     
     // 遍历每一个类别
     for (int class_idx = 0; class_idx < num_class_; ++ class_idx) {  // hardcode for class_map as {0, 12 , 34 , 5 ,67 ,89}
-        // init parameter
+        // init parameter, 得到一个符合值，该类别中数目+1
         host_filtered_count[class_idx] = 0;
 
 
@@ -171,15 +171,15 @@ void PostprocessCuda::DoPostprocessCuda(
             float score_lower = 0;
             if (class_idx == 0 || class_idx == 5 ) {
                 score_upper =  1 / (1 + expf(-host_score[ stride[class_idx] * num_anchor_per_cls_ + anchor_idx ])); // sigmoid function
-
+                // printf("class_idx == 0/5, score_up , low : %f ,%f \n", score_upper , score_lower);
             }
             else {
                 score_upper =  1 / (1 + expf(-host_score[ stride[class_idx] * num_anchor_per_cls_  + anchor_idx * 2  + offset[class_idx]]));
                 score_lower =  1 / (1 + expf(-host_score[ stride[class_idx] * num_anchor_per_cls_  + (num_anchor_per_cls_ + anchor_idx) * 2 + offset[class_idx]]));
-                // printf("up , low : %f ,%f \n", score_upper , score_lower);
+                // printf("score_up , low : %f ,%f \n", score_upper , score_lower); // eg. 0.000069 ,0.001598
             }
 
-            // 过滤，box属性拷贝： 利用 score_upper， score_lower 结合score_threshold_，nms_pre_maxsize_
+            // 过滤，box属性拷贝： 利用 score_upper， score_lower 结合score_threshold_，nms_pre_maxsize_(1000)
             if (score_upper > score_threshold_ && host_filtered_count[class_idx] < nms_pre_maxsize_)  // filter out boxes which threshold less than score_threshold
             {
                 host_filtered_score[host_filtered_count[class_idx]] = score_upper;
@@ -209,15 +209,15 @@ void PostprocessCuda::DoPostprocessCuda(
         // sort boxes (topk)
         float host_sorted_filtered_box[host_filtered_count[class_idx] * 7];
         float host_sorted_filtered_score[host_filtered_count[class_idx]];
-        int host_sorted_filtered_indexes[host_filtered_count[class_idx]];
+        int host_sorted_filtered_indexes[host_filtered_count[class_idx]]; // 索引极值
         for (int i = 0 ; i < host_filtered_count[class_idx] ; i++) {host_sorted_filtered_indexes[i] = i;}
        
-
+        // 快排，按照score 进行排序
         quicksort_kernel(host_filtered_score , host_sorted_filtered_indexes , host_filtered_count[class_idx]);
         
         for (int ith_box = 0 ; ith_box  < host_filtered_count[class_idx] ; ++ith_box) 
         {
-            host_sorted_filtered_score[ith_box] = host_filtered_score[ith_box];
+            host_sorted_filtered_score[ith_box] = host_filtered_score[ith_box]; // 分数
             host_sorted_filtered_box[ith_box * 7 + 0] = host_filtered_box[host_sorted_filtered_indexes[ith_box] * 7 + 0];
             host_sorted_filtered_box[ith_box * 7 + 1] = host_filtered_box[host_sorted_filtered_indexes[ith_box] * 7 + 1];
             host_sorted_filtered_box[ith_box * 7 + 2] = host_filtered_box[host_sorted_filtered_indexes[ith_box] * 7 + 2];
@@ -255,6 +255,7 @@ void PostprocessCuda::DoPostprocessCuda(
         memset(keep_inds, 0, num_box_for_nms * sizeof(int));
         
         int det_num_boxes_per_class = 0;
+        // NMS : 参考https://blog.csdn.net/shuzfan/article/details/52711706?ops_request_misc=%257B%2522request%255Fid%2522%253A%2522167947508116800217275498%2522%252C%2522scm%2522%253A%252220140713.130102334..%2522%257D&request_id=167947508116800217275498&biz_id=0&utm_medium=distribute.pc_search_result.none-task-blog-2~all~sobaiduend~default-2-52711706-null-null.142^v76^wechat_v2,201^v4^add_ask,239^v2^insert_chatgpt&utm_term=nms%20%E9%9D%9E%E6%9E%81%E5%A4%A7%E5%80%BC%E6%8A%91%E5%88%B6&spm=1018.2226.3001.4187
         nms_cuda_ptr_->DoNmsCuda(num_box_for_nms, dev_sorted_filtered_box, keep_inds, &det_num_boxes_per_class);
         det_num_boxes_per_class = min(det_num_boxes_per_class, nms_post_maxsize_);
         

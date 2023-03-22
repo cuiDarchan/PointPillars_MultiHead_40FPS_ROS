@@ -15,6 +15,6 @@ InputFile: ../test/testdata/nuscenes_10sweeps_points.txt
 OutputFile: ../test/testdata/demo_boxes.txt
 
 LidarTopic: /lidar_top
-FrameId: kitti
+FrameId: lidar_top
 BoundingBoxTopic: boundingbox_objects
 ObjectScoreThreshold: 0.3

@@ -65,7 +65,7 @@ void PointPillars::InitParams()
     kMaxNumPointsPerPillar = params["DATA_CONFIG"]["DATA_PROCESSOR"][2]["MAX_POINTS_PER_VOXEL"].as<int>(); // 20
     kNumPointFeature = 5; // [x, y, z, i,0]
     kNumInputBoxFeature = 7;
-    kNumOutputBoxFeature = params["MODEL"]["DENSE_HEAD"]["TARGET_ASSIGNER_CONFIG"]["BOX_CODER_CONFIG"]["code_size"].as<int>();
+    kNumOutputBoxFeature = params["MODEL"]["DENSE_HEAD"]["TARGET_ASSIGNER_CONFIG"]["BOX_CODER_CONFIG"]["code_size"].as<int>();//9
     kBatchSize = 1;
     kNumIndsForScan = 1024;
     kNumThreads = 64;
