@@ -51,7 +51,7 @@
 #include "preprocess.h"
 
 /*
- * pillar化：根据pillar坐标，为pillar_point_feature的赋值，每个pillar中有最大数目限制
+ * pillar化：根据pillar坐标，1）为pillar_point_feature的赋值，2）统计每一个pillar中点数
  */
 __global__ void make_pillar_histo_kernel(
     const float* dev_points, float* dev_pillar_point_feature_in_coors,
@@ -91,7 +91,7 @@ __global__ void make_pillar_histo_kernel(
 
 
 /*
- * 对每一个pillar进行操作： 统计pillar中点的个数，制作pillar索引，赋值到dev_sparse_pillar_map
+ * 对每一个pillar进行操作： 1）统计pillar中点的个数更新；2）生成pillar索引；3）生成带有占据信息的sparse_pillar_map；4）保存pillar坐标
  */
 __global__ void make_pillar_index_kernel(
     int* dev_pillar_count_histo, int* dev_counter, int* dev_pillar_count,

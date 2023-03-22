@@ -47,8 +47,8 @@
 #include "scatter.h"
 
 /*
- * scatter算子：将特征(C,P)还原回scattered_feature（W,H,C）, 每一个pillar中每一个特征执行该算子
- * 注意：索引计算技巧，如针对tensor（x,y,z） ind = x_size* y_size * z_i + x_size * y_i + x_i
+ * scatter算子：将特征(C,P)还原回scattered_feature（C,H,W）, 对C维度上每一个特征执行该算子
+ * 注意：索引计算技巧，如针对tensor（x,y,z） ind = x_i * y_size* z_size + y_i  * z_size  + z_i
  */
 __global__ void scatter_kernel(int *x_coors, int *y_coors, float *pfe_output,
   float *scattered_feature, const int grid_x_size,
@@ -57,14 +57,14 @@ int i_pillar = blockIdx.x;
 int i_feature = threadIdx.x;
 int x_ind = x_coors[i_pillar]; // W
 int y_ind = y_coors[i_pillar]; // H
-float feature = pfe_output[i_pillar * 64 + i_feature];
+float feature = pfe_output[i_pillar * 64 + i_feature]; // C: 64
 scattered_feature[i_feature * grid_y_size * grid_x_size +
 y_ind * grid_x_size + x_ind] = feature;
 }
 
 ScatterCuda::ScatterCuda(const int num_threads, const int grid_x_size,
 const int grid_y_size)
-: num_threads_(num_threads),
+: num_threads_(num_threads), // num_threads_=C : 64
 grid_x_size_(grid_x_size),
 grid_y_size_(grid_y_size) {}
 
