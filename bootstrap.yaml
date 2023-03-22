@@ -14,6 +14,7 @@ ModelConfig: ../pointpillars/cfgs/cbgs_pp_multihead.yaml
 InputFile: ../test/testdata/nuscenes_10sweeps_points.txt
 OutputFile: ../test/testdata/demo_boxes.txt
 
-LidarTopic: lidar_top
+LidarTopic: /lidar_top
+FrameId: kitti
 BoundingBoxTopic: boundingbox_objects
 ObjectScoreThreshold: 0.3

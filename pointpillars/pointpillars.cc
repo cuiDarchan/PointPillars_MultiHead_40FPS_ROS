@@ -61,8 +61,8 @@ void PointPillars::InitParams()
     kMaxYRange = params["DATA_CONFIG"]["POINT_CLOUD_RANGE"][4].as<float>();
     kMaxZRange = params["DATA_CONFIG"]["POINT_CLOUD_RANGE"][5].as<float>();
     kNumClass = params["CLASS_NAMES"].size();
-    kMaxNumPillars = params["DATA_CONFIG"]["DATA_PROCESSOR"][2]["MAX_NUMBER_OF_VOXELS"]["test"].as<int>();
-    kMaxNumPointsPerPillar = params["DATA_CONFIG"]["DATA_PROCESSOR"][2]["MAX_POINTS_PER_VOXEL"].as<int>();
+    kMaxNumPillars = params["DATA_CONFIG"]["DATA_PROCESSOR"][2]["MAX_NUMBER_OF_VOXELS"]["test"].as<int>(); // 30000
+    kMaxNumPointsPerPillar = params["DATA_CONFIG"]["DATA_PROCESSOR"][2]["MAX_POINTS_PER_VOXEL"].as<int>(); // 20
     kNumPointFeature = 5; // [x, y, z, i,0]
     kNumInputBoxFeature = 7;
     kNumOutputBoxFeature = params["MODEL"]["DENSE_HEAD"]["TARGET_ASSIGNER_CONFIG"]["BOX_CODER_CONFIG"]["code_size"].as<int>();
@@ -375,7 +375,7 @@ void PointPillars::DoInference(const float* in_points_array,
     // [STEP 1] : load pointcloud
     float* dev_points;
     GPU_CHECK(cudaMalloc(reinterpret_cast<void**>(&dev_points),
-                        in_num_points * kNumPointFeature * sizeof(float))); // in_num_points , 5
+                        in_num_points * kNumPointFeature * sizeof(float))); // [in_num_points , 5]
     GPU_CHECK(cudaMemset(dev_points, 0, in_num_points * kNumPointFeature * sizeof(float)));
     GPU_CHECK(cudaMemcpy(dev_points, in_points_array,
                         in_num_points * kNumPointFeature * sizeof(float),

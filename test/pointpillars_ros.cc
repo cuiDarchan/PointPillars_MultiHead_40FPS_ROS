@@ -22,6 +22,7 @@ using namespace std;
 float* points_array;
 int in_num_points;
 float g_score_threshold;
+std::string g_frame_id;
 
 int Txt2Arrary( float* &points_array , string file_name , int num_feature = 4)
 {
@@ -103,7 +104,7 @@ void publishDetectionResult(const std::vector<float>& boxes,
   // box_dim： x，y，z，dx，dy，dz，yaw
   for (int i = 0; i < boxes.size(); i = i + 7) {
     jsk_recognition_msgs::BoundingBox jsk_box;
-    jsk_box.header.frame_id = "lidar_top";
+    jsk_box.header.frame_id = g_frame_id;
     jsk_box.pose.position.x = boxes[i+0];
     jsk_box.pose.position.y = boxes[i+1];
     jsk_box.pose.position.z = boxes[i+2];
@@ -128,7 +129,7 @@ void publishDetectionResult(const std::vector<float>& boxes,
       jsk_boxes.boxes.emplace_back(jsk_box);
     }
   }
-  jsk_boxes.header.frame_id = "lidar_top";
+  jsk_boxes.header.frame_id = g_frame_id;
   pub_bbox.publish(jsk_boxes);
 }
 
@@ -161,6 +162,7 @@ int main(int argc, char* argv[]) {
   std::string file_name = config["InputFile"].as<std::string>();
   std::string lidar_topic = config["LidarTopic"].as<std::string>();
   std::string bbox_topic = config["BoundingBoxTopic"].as<std::string>();
+  g_frame_id = config["FrameId"].as<std::string>();
   g_score_threshold = config["ObjectScoreThreshold"].as<float>();
   
   // 订阅lidar_topic,发布boundingbox
